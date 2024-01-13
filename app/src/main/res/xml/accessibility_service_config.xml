@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewClicked|typeNotificationStateChanged"
+    android:accessibilityFeedbackType="feedbackAllMask"
+    android:canPerformGestures="true"
+    android:packageNames="com.tencent.mm"
+    android:canRequestEnhancedWebAccessibility="true"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/wechat_description"
+    android:notificationTimeout="50"
+    android:settingsActivity="com.aprz.wechatredenvelope.MainActivity" />

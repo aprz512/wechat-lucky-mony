@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">微信红包助手</string>
+    <string name="title_home">首页</string>
+    <string name="title_dashboard">记录</string>
+    <string name="title_about">关于</string>
+    <string name="content_notification">天予不取，反受其咎；时至不迎，反受其殃</string>
+    <string name="permission_granted">已有该权限</string>
+    <string name="need_setup_permissions">点我设置权限</string>
+    <string name="open_wechat_red_envelope_monitor">开启微信红包监控</string>
+    <string name="close_wechat_red_envelope_monitor">关闭微信红包监控</string>
+    <string name="notification_permission">通知栏权限</string>
+    <string name="please_grant_notification_permission">请授予通知权限</string>
+    <string name="red_envelope_service">微信红包助手服务</string>
+    <string name="wechat_description">辅助功能开启【抢微信红包】</string>
+    <string name="accessibility_permission">无障碍权限</string>
+</resources>
