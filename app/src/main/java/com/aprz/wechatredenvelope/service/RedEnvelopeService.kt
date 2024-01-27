@@ -31,12 +31,14 @@ class RedEnvelopeService : AccessibilityService() {
 
         const val SECRET_CODE = "@!_a5right_$@"
         const val OPEN_TEXT = "开"
+
+
     }
 
     private var windowNode: AccessibilityNodeInfo? = null
     private var chatListViewId: String? = null
     private var redEnvelopeViewId: String? = null
-    private var openRedEnvelopeViewId: String? = null
+    private var openRedEnvelopeViewId: MutableList<String> = mutableListOf()
     private var showInitTips = true
 
     override fun onServiceConnected() {
@@ -51,7 +53,7 @@ class RedEnvelopeService : AccessibilityService() {
             return
         }
 
-//        Log.e("aprz", "onAccessibilityEvent type = ${event}")
+        Log.e("aprz", "onAccessibilityEvent type = ${event}")
 
         prepareViewIds(event)
         checkViewIds()
@@ -64,7 +66,7 @@ class RedEnvelopeService : AccessibilityService() {
     private fun checkViewIds() {
         if (chatListViewId != null
             && redEnvelopeViewId != null
-            && openRedEnvelopeViewId != null
+            && openRedEnvelopeViewId.isEmpty()
             && showInitTips
         ) {
             shortToast("环境初始化完毕")
@@ -80,7 +82,7 @@ class RedEnvelopeService : AccessibilityService() {
             }
         }
 
-        if (openRedEnvelopeViewId == null) {
+        if (openRedEnvelopeViewId.isEmpty()) {
             if (LUCKY_MONEY_NOT_HOOK_RECEIVE_UI == event.className) {
                 setOpenRedEnvelopeViewId()
             }
@@ -88,14 +90,12 @@ class RedEnvelopeService : AccessibilityService() {
     }
 
     private fun setOpenRedEnvelopeViewId() {
-        val openRedEnvelopeViewId = findViewIdInWindowNode {
+        findAllViewIdInWindowNode(this.openRedEnvelopeViewId) {
             it.contentDescription == OPEN_TEXT
                     && it.viewIdResourceName?.startsWith("com.tencent.mm:id/", false) == true
         }
-        if (openRedEnvelopeViewId.isNullOrEmpty()) {
+        if (openRedEnvelopeViewId.isEmpty()) {
             Log.e("aprz", "can not find openRedEnvelopeViewId")
-        } else {
-            this.openRedEnvelopeViewId = openRedEnvelopeViewId
         }
     }
 
@@ -174,7 +174,7 @@ class RedEnvelopeService : AccessibilityService() {
     private fun clickOpenRedEnvelopeButton(event: AccessibilityEvent) {
         windowNode ?: return
 
-        if (this.openRedEnvelopeViewId.isNullOrEmpty()) {
+        if (this.openRedEnvelopeViewId.isEmpty()) {
             return
         }
 
@@ -182,14 +182,41 @@ class RedEnvelopeService : AccessibilityService() {
             return
         }
 
-        val openViewNodeInfos =
-            windowNode?.findAccessibilityNodeInfosByViewId(openRedEnvelopeViewId!!)
-
-        if (openViewNodeInfos.isNullOrEmpty()) {
-            return
+        this.openRedEnvelopeViewId.forEach {
+            val openViewNodeInfos =
+                windowNode?.findAccessibilityNodeInfosByViewId(it)
+            if (openViewNodeInfos.isNullOrEmpty()) {
+                return
+            }
+            performViewClick(openViewNodeInfos[0])
         }
 
-        performViewClick(openViewNodeInfos[0])
+    }
+
+    private fun findAllViewIdInWindowNode(
+        list: MutableList<String>,
+        filter: (AccessibilityNodeInfo) -> Boolean,
+    ) {
+        windowNode ?: return
+        findAllViewInAccessibilityNodeInfo(windowNode!!, list, filter)
+    }
+
+    private fun findAllViewInAccessibilityNodeInfo(
+        nodeInfo: AccessibilityNodeInfo,
+        list: MutableList<String>,
+        filter: (AccessibilityNodeInfo) -> Boolean,
+    ) {
+        val find = filter(nodeInfo)
+        if (find) {
+            list.add(nodeInfo.viewIdResourceName)
+        }
+        val childCount = nodeInfo.childCount
+        for (i in 0 until childCount) {
+            val child = nodeInfo.getChild(i)
+            if (child != null) {
+                findAllViewInAccessibilityNodeInfo(child, list, filter)
+            }
+        }
     }
 
     private fun findViewIdInWindowNode(filter: (AccessibilityNodeInfo) -> Boolean): String? {
