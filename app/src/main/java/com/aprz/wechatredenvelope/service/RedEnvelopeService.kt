@@ -167,7 +167,21 @@ class RedEnvelopeService : AccessibilityService() {
 
     private fun quitLuckyMoneyDetailUI(event: AccessibilityEvent) {
         if (LUCKY_MONEY_DETAIL_UI == event.className) {
-            performGlobalAction(GLOBAL_ACTION_BACK);
+            performGlobalAction(GLOBAL_ACTION_BACK)
+        }
+
+        val flags1 = findViewIdInWindowNode {
+            it.text?.toString() == "已存入零钱，可直接消费"
+        }
+
+        val flags2 = findViewIdInWindowNode {
+            it.text?.toString() == " 回复表情到聊天"
+        }
+
+        if (flags1?.isNotEmpty() == true
+            && flags2?.isNotEmpty() == true
+        ) {
+            performGlobalAction(GLOBAL_ACTION_BACK)
         }
     }
 
