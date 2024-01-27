@@ -51,7 +51,7 @@ class RedEnvelopeService : AccessibilityService() {
             return
         }
 
-        Log.e("aprz", "onAccessibilityEvent type = ${event}")
+//        Log.e("aprz", "onAccessibilityEvent type = ${event}")
 
         prepareViewIds(event)
         checkViewIds()
@@ -102,7 +102,7 @@ class RedEnvelopeService : AccessibilityService() {
     private fun setRedEnvelopeViewId() {
         val secretCodeViewId = findViewIdInWindowNode {
             Log.e("aprz", "setRedEnvelopeViewId -> ${it.viewIdResourceName} - ${it.text}")
-            it.text == SECRET_CODE
+            it.text?.toString() == SECRET_CODE
                     && it.viewIdResourceName?.startsWith("com.tencent.mm:id/", false) == true
         }
         if (secretCodeViewId.isNullOrEmpty()) {
@@ -112,11 +112,15 @@ class RedEnvelopeService : AccessibilityService() {
         }
 
         if (redEnvelopeViewId?.isNotEmpty() == true) {
+            setParentId()
             return
         }
 
         val redEnvelopeViewId = findViewIdInWindowNode {
-            it.text == "微信红包" && it.viewIdResourceName?.startsWith("com.tencent.mm:id/", false) == true
+            it.text == "微信红包" && it.viewIdResourceName?.startsWith(
+                "com.tencent.mm:id/",
+                false
+            ) == true
         }
         if (redEnvelopeViewId.isNullOrEmpty()) {
             Log.e("aprz", "can not find redEnvelopeViewId")
@@ -124,13 +128,26 @@ class RedEnvelopeService : AccessibilityService() {
             this.redEnvelopeViewId = redEnvelopeViewId
         }
 
-        if (redEnvelopeViewId.isNullOrEmpty()) {
-            return
+        if (this.redEnvelopeViewId?.isNotEmpty() == true) {
+            setParentId()
         }
 
-//        val childView =
-//            windowNode!!.findAccessibilityNodeInfosByViewId(redEnvelopeViewId)[0]
-//        childView.parent
+    }
+
+    private fun setParentId() {
+        val childView =
+            windowNode!!.findAccessibilityNodeInfosByViewId(this.redEnvelopeViewId!!)[0]
+        val parent = getFrameLayoutParent(childView)
+        this.redEnvelopeViewId = parent?.viewIdResourceName
+    }
+
+    private fun getFrameLayoutParent(node: AccessibilityNodeInfo?): AccessibilityNodeInfo? {
+        var tmp = node
+
+        while (tmp != null && tmp.className != "android.widget.FrameLayout") {
+            tmp = tmp.parent
+        }
+        return tmp
     }
 
     private fun setChatListViewId() {
@@ -213,7 +230,7 @@ class RedEnvelopeService : AccessibilityService() {
         }
         val chatList = windowNode!!.findAccessibilityNodeInfosByViewId(chatListViewId!!)
         if (chatList.isNullOrEmpty()) {
-//            Log.e("aprz", "chatList is null")
+            Log.e("aprz", "chatList is null")
             return
         }
 
@@ -244,27 +261,39 @@ class RedEnvelopeService : AccessibilityService() {
     }
 
     private fun isRedEnvelop(accessibilityNodeInfo: AccessibilityNodeInfo): Boolean {
-        val childCount = accessibilityNodeInfo.childCount
-        for (i in 0 until childCount) {
-            val child = accessibilityNodeInfo.getChild(i)
-            Log.e("aprz", "isRedEnvelop text = ${child.text}")
-            if (child?.text.toString() == "微信红包") {
-                return true
+        return findNodeInfoRecursive(accessibilityNodeInfo) {
+            Log.e("aprz", "isRedEnvelop text = ${it?.text}")
+            it?.text?.toString() == "微信红包"
+        } != null
+    }
+
+    private fun findNodeInfoRecursive(
+        nodeInfo: AccessibilityNodeInfo,
+        filter: (node: AccessibilityNodeInfo?) -> Boolean
+    ): AccessibilityNodeInfo? {
+        val find = filter(nodeInfo)
+        if (find) {
+            return nodeInfo
+        } else {
+            val childCount = nodeInfo.childCount
+            for (i in 0 until childCount) {
+                val child = nodeInfo.getChild(i)
+                if (child != null) {
+                    val result = findNodeInfoRecursive(child, filter)
+                    if (result != null) {
+                        return result
+                    }
+                }
             }
         }
-        return false
+        return null
     }
 
     private fun isRedEnvelopOpened(accessibilityNodeInfo: AccessibilityNodeInfo): Boolean {
-        val childCount = accessibilityNodeInfo.childCount
-        for (i in 0 until childCount) {
-            val child = accessibilityNodeInfo.getChild(i)
-            Log.e("aprz", "isRedEnvelopOpened text = ${child.text}")
-            if (child?.text.toString() == "已领取" || child?.text.toString() == "已被领完") {
-                return true
-            }
-        }
-        return false
+        return findNodeInfoRecursive(accessibilityNodeInfo) {
+            Log.e("aprz", "isRedEnvelopOpened text = ${it?.text}")
+            it?.text.toString() == "已领取" || it?.text.toString() == "已被领完"
+        } != null
     }
 
 
