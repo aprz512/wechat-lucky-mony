@@ -66,7 +66,7 @@ class RedEnvelopeService : AccessibilityService() {
     private fun checkViewIds() {
         if (chatListViewId != null
             && redEnvelopeViewId != null
-            && openRedEnvelopeViewId.isEmpty()
+            && openRedEnvelopeViewId.isNotEmpty()
             && showInitTips
         ) {
             shortToast("环境初始化完毕")
