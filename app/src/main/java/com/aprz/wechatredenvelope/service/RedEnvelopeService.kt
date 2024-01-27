@@ -11,7 +11,6 @@ import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.core.app.NotificationCompat
 import com.aprz.wechatredenvelope.App
 import com.aprz.wechatredenvelope.Controller
 import com.aprz.wechatredenvelope.MainActivity
@@ -25,18 +24,20 @@ class RedEnvelopeService : AccessibilityService() {
         const val CHANNEL_ID = "money"
         private const val NOTIFICATION_ID = 10000
 
-        const val CHAT_LIST_ID = "com.tencent.mm:id/bme"
-        const val RED_ENVELOPE_VIEW_ID = "com.tencent.mm:id/bhx"
-
-        const val RED_ENVELOPE_OPEN_BUTTON_VIEW_ID1 = "com.tencent.mm:id/it9"
-        const val RED_ENVELOPE_OPEN_BUTTON_VIEW_ID2 = "com.tencent.mm:id/it8"
-        const val RED_ENVELOPE_CLOSE_VIEW_ID = "com.tencent.mm:id/it7"
+        const val LAUNCHER_UI = "com.tencent.mm.ui.LauncherUI"
         const val LUCKY_MONEY_NOT_HOOK_RECEIVE_UI =
             "com.tencent.mm.plugin.luckymoney.ui.LuckyMoneyNotHookReceiveUI"
         const val LUCKY_MONEY_DETAIL_UI = "com.tencent.mm.plugin.luckymoney.ui.LuckyMoneyDetailUI"
+
+        const val SECRET_CODE = "@!_a5right_$@"
+        const val OPEN_TEXT = "开"
     }
 
     private var windowNode: AccessibilityNodeInfo? = null
+    private var chatListViewId: String? = null
+    private var redEnvelopeViewId: String? = null
+    private var openRedEnvelopeViewId: String? = null
+    private var showInitTips = true
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -50,9 +51,101 @@ class RedEnvelopeService : AccessibilityService() {
             return
         }
 
+        Log.e("aprz", "onAccessibilityEvent type = ${event}")
+
+        prepareViewIds(event)
+        checkViewIds()
+
         clickNotOpenedRedEnvelope()
-        clickOpenRedEnvelopeButton()
+        clickOpenRedEnvelopeButton(event)
         quitLuckyMoneyDetailUI(event)
+    }
+
+    private fun checkViewIds() {
+        if (chatListViewId != null
+            && redEnvelopeViewId != null
+            && openRedEnvelopeViewId != null
+            && showInitTips
+        ) {
+            shortToast("环境初始化完毕")
+            showInitTips = false
+        }
+    }
+
+    private fun prepareViewIds(event: AccessibilityEvent) {
+        if (chatListViewId == null || redEnvelopeViewId == null) {
+            if (LAUNCHER_UI == event.className) {
+                setRedEnvelopeViewId()
+                setChatListViewId()
+            }
+        }
+
+        if (openRedEnvelopeViewId == null) {
+            if (LUCKY_MONEY_NOT_HOOK_RECEIVE_UI == event.className) {
+                setOpenRedEnvelopeViewId()
+            }
+        }
+    }
+
+    private fun setOpenRedEnvelopeViewId() {
+        val openRedEnvelopeViewId = findViewIdInWindowNode {
+            it.contentDescription == OPEN_TEXT
+                    && it.viewIdResourceName?.startsWith("com.tencent.mm:id/", false) == true
+        }
+        if (openRedEnvelopeViewId.isNullOrEmpty()) {
+            Log.e("aprz", "can not find openRedEnvelopeViewId")
+        } else {
+            this.openRedEnvelopeViewId = openRedEnvelopeViewId
+        }
+    }
+
+    private fun setRedEnvelopeViewId() {
+        val secretCodeViewId = findViewIdInWindowNode {
+            Log.e("aprz", "setRedEnvelopeViewId -> ${it.viewIdResourceName} - ${it.text}")
+            it.text == SECRET_CODE
+                    && it.viewIdResourceName?.startsWith("com.tencent.mm:id/", false) == true
+        }
+        if (secretCodeViewId.isNullOrEmpty()) {
+            Log.e("aprz", "can not find secretCodeViewId")
+        } else {
+            this.redEnvelopeViewId = secretCodeViewId
+        }
+
+        if (redEnvelopeViewId?.isNotEmpty() == true) {
+            return
+        }
+
+        val redEnvelopeViewId = findViewIdInWindowNode {
+            it.text == "微信红包" && it.viewIdResourceName?.startsWith("com.tencent.mm:id/", false) == true
+        }
+        if (redEnvelopeViewId.isNullOrEmpty()) {
+            Log.e("aprz", "can not find redEnvelopeViewId")
+        } else {
+            this.redEnvelopeViewId = redEnvelopeViewId
+        }
+
+        if (redEnvelopeViewId.isNullOrEmpty()) {
+            return
+        }
+
+//        val childView =
+//            windowNode!!.findAccessibilityNodeInfosByViewId(redEnvelopeViewId)[0]
+//        childView.parent
+    }
+
+    private fun setChatListViewId() {
+        if (redEnvelopeViewId.isNullOrEmpty()) {
+            return
+        }
+        val chatListViewId = findViewIdInWindowNode {
+            it.className == "androidx.recyclerview.widget.RecyclerView"
+                    && it.viewIdResourceName?.startsWith("com.tencent.mm:id/", false) == true
+        }
+        if (chatListViewId.isNullOrEmpty()) {
+            Log.e("aprz", "can not find chatListViewId")
+        } else {
+            this.chatListViewId = chatListViewId
+        }
     }
 
     private fun quitLuckyMoneyDetailUI(event: AccessibilityEvent) {
@@ -61,21 +154,52 @@ class RedEnvelopeService : AccessibilityService() {
         }
     }
 
-    private fun clickOpenRedEnvelopeButton() {
+    private fun clickOpenRedEnvelopeButton(event: AccessibilityEvent) {
         windowNode ?: return
-        // not in chat list
-        val openButton1 =
-            windowNode?.findAccessibilityNodeInfosByViewId(RED_ENVELOPE_OPEN_BUTTON_VIEW_ID1)
-        if (openButton1.isNullOrEmpty()) {
+
+        if (this.openRedEnvelopeViewId.isNullOrEmpty()) {
             return
         }
-        val openButton2 =
-            windowNode?.findAccessibilityNodeInfosByViewId(RED_ENVELOPE_OPEN_BUTTON_VIEW_ID2)
-        if (openButton2.isNullOrEmpty()) {
+
+        if (LUCKY_MONEY_NOT_HOOK_RECEIVE_UI != event.className) {
             return
         }
-        performViewClick(openButton1[0])
-        performViewClick(openButton2[0])
+
+        val openViewNodeInfos =
+            windowNode?.findAccessibilityNodeInfosByViewId(openRedEnvelopeViewId!!)
+
+        if (openViewNodeInfos.isNullOrEmpty()) {
+            return
+        }
+
+        performViewClick(openViewNodeInfos[0])
+    }
+
+    private fun findViewIdInWindowNode(filter: (AccessibilityNodeInfo) -> Boolean): String? {
+        windowNode ?: return null
+        return findViewInAccessibilityNodeInfo(filter, windowNode!!)
+    }
+
+    private fun findViewInAccessibilityNodeInfo(
+        filter: (AccessibilityNodeInfo) -> Boolean,
+        nodeInfo: AccessibilityNodeInfo
+    ): String? {
+        val find = filter(nodeInfo)
+        if (!find) {
+            val childCount = nodeInfo.childCount
+            for (i in 0 until childCount) {
+                val child = nodeInfo.getChild(i)
+                if (child != null) {
+                    val result = findViewInAccessibilityNodeInfo(filter, child)
+                    if (result?.isNotEmpty() == true) {
+                        return result
+                    }
+                }
+            }
+        } else {
+            return nodeInfo.viewIdResourceName
+        }
+        return null
     }
 
     /**
@@ -83,16 +207,26 @@ class RedEnvelopeService : AccessibilityService() {
      */
     private fun clickNotOpenedRedEnvelope() {
         windowNode ?: return
-        // not in chat list
-        val chatList = windowNode?.findAccessibilityNodeInfosByViewId(CHAT_LIST_ID)
+
+        if (chatListViewId.isNullOrEmpty()) {
+            return
+        }
+        val chatList = windowNode!!.findAccessibilityNodeInfosByViewId(chatListViewId!!)
         if (chatList.isNullOrEmpty()) {
+//            Log.e("aprz", "chatList is null")
+            return
+        }
+
+        if (redEnvelopeViewId.isNullOrEmpty()) {
             return
         }
         val redEnvelops =
-            windowNode?.findAccessibilityNodeInfosByViewId(RED_ENVELOPE_VIEW_ID)
+            windowNode?.findAccessibilityNodeInfosByViewId(redEnvelopeViewId!!)
         if (redEnvelops.isNullOrEmpty()) {
+            Log.e("aprz", "redEnvelops is null")
             return
         }
+
         val first = redEnvelops.filter {
             val isRedEnvelop = isRedEnvelop(it)
             val opened = isRedEnvelopOpened(it)
@@ -113,6 +247,7 @@ class RedEnvelopeService : AccessibilityService() {
         val childCount = accessibilityNodeInfo.childCount
         for (i in 0 until childCount) {
             val child = accessibilityNodeInfo.getChild(i)
+            Log.e("aprz", "isRedEnvelop text = ${child.text}")
             if (child?.text.toString() == "微信红包") {
                 return true
             }
@@ -124,6 +259,7 @@ class RedEnvelopeService : AccessibilityService() {
         val childCount = accessibilityNodeInfo.childCount
         for (i in 0 until childCount) {
             val child = accessibilityNodeInfo.getChild(i)
+            Log.e("aprz", "isRedEnvelopOpened text = ${child.text}")
             if (child?.text.toString() == "已领取" || child?.text.toString() == "已被领完") {
                 return true
             }
@@ -163,7 +299,10 @@ class RedEnvelopeService : AccessibilityService() {
         val notificationIntent = Intent(this, MainActivity::class.java)
 
         val pendingIntent = PendingIntent.getActivity(
-            this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            this,
+            0,
+            notificationIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         val notification = builder.setContentIntent(pendingIntent)
             .setLargeIcon(
